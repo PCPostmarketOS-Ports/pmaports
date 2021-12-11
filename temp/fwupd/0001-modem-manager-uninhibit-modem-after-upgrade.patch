@@ -1,0 +1,61 @@
+From 4fd1f347b1b938a75e38189b94382ead0ac4b1be Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Sat, 18 Dec 2021 16:44:21 +0100
+Subject: [PATCH 1/3] modem-manager: uninhibit modem after upgrade
+
+When fastboot is used, the modem is rediscovered through udev
+after upgrading. However, the modem-manager plugin did not mark
+the modem as unhibited with ModemManager. This resulted into
+ModemManager not exposing the modem without restarting ModemManager or
+rebooting the device.
+
+Mark the modem as uninhibited and do not take ownership over the
+plugin data as this caused segfaults.
+---
+ plugins/modem-manager/fu-plugin-modem-manager.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/plugins/modem-manager/fu-plugin-modem-manager.c b/plugins/modem-manager/fu-plugin-modem-manager.c
+index 642a64cd..be6c9f92 100644
+--- a/plugins/modem-manager/fu-plugin-modem-manager.c
++++ b/plugins/modem-manager/fu-plugin-modem-manager.c
+@@ -60,17 +60,20 @@ static void
+ fu_plugin_mm_uninhibit_device(FuPlugin *plugin)
+ {
+ 	FuPluginData *priv = fu_plugin_get_data(plugin);
+-	g_autoptr(FuPluginMmInhibitedDeviceInfo) info = NULL;
+ 
++	/* Udev monitoring can be removed as modem is back again */
+ 	g_clear_object(&priv->udev_client);
+ 
+ 	/* get the device removed from the plugin cache before uninhibiting */
+ 	fu_plugin_mm_udev_device_removed(plugin);
+ 
+-	info = g_steal_pointer(&priv->inhibited);
+-	if ((priv->manager != NULL) && (info != NULL)) {
+-		g_debug("uninhibit modemmanager device with uid %s", info->inhibited_uid);
+-		mm_manager_uninhibit_device_sync(priv->manager, info->inhibited_uid, NULL, NULL);
++	if ((priv->manager != NULL) && (priv->inhibited != NULL)) {
++		g_debug("uninhibit modemmanager device with uid %s",
++			priv->inhibited->inhibited_uid);
++		mm_manager_uninhibit_device_sync(priv->manager,
++						 priv->inhibited->inhibited_uid,
++						 NULL,
++						 NULL);
+ 	}
+ }
+ 
+@@ -128,6 +131,10 @@ fu_plugin_mm_udev_device_port_added(FuPlugin *plugin,
+ 		fu_plugin_mm_udev_device_ports_timeout_reset(plugin);
+ 		return;
+ 	}
++
++	/* device is being created, update is complete, uninhibit */
++	fu_plugin_mm_uninhibit_device(plugin);
++
+ 	/* create device and add to cache */
+ 	dev = fu_mm_device_udev_new(fu_plugin_get_context(plugin), priv->manager, priv->inhibited);
+ 	fu_mm_device_udev_add_port(dev, subsystem, path, ifnum);
+-- 
+2.33.1
+
