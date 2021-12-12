@@ -4,7 +4,7 @@
 # boot failure
 
 pkgname=linux-pine64-pinephonepro
-pkgver=5.13.0
+pkgver=5.16.0_rc4
 pkgrel=0
 pkgdesc="Mainline kernel for the pinephone pro"
 arch="aarch64"
@@ -25,6 +25,7 @@ makedepends="
 	gmp-dev
 	gzip
 	installkernel
+	linux-headers
 	mpc1-dev
 	mpfr-dev
 	openssl-dev
@@ -45,16 +46,22 @@ case $pkgver in
 	*.*.*)	_kernver=${pkgver%.0};;
 	*.*)	_kernver=$pkgver;;
 esac
-_commit="33cda226d19896e92f30a22bc44b05075b13bb32"
+_commit="1eb26797c1b9356281efff18a79dee892ddc590d"
 source="
-	$pkgname-$_commit.tar.gz::https://git.sr.ht/~martijnbraam/linux/archive/$_commit.tar.gz
+	$pkgname-$_commit.tar.gz::https://gitlab.com/mobian1/devices/rockchip-linux/-/archive/$_commit.tar.gz
 	config-$_flavor.aarch64
 	"
-builddir="$srcdir/linux-$_commit"
+builddir="$srcdir/rockchip-linux-$_commit"
 
 prepare() {
 	default_prepare
+
 	cp "$srcdir/config-$_flavor.$CARCH" .config
+
+	find debian/patches -name "*.patch" -type f | sort | while read -r i; do
+		msg "${i%::*}"
+		patch -p1 -i $i;
+	done
 }
 
 build() {
@@ -80,6 +87,6 @@ package() {
 
 
 sha512sums="
-99fb2d699bc1f8bf4ac02fa3104c1dfdf85092dfba80983d611d1f93e1dfd4bbbb0dbe8452933766ab5ce5d9bc9949075d0db6990eb1aeebc9dff6c51d719c38  linux-pine64-pinephonepro-33cda226d19896e92f30a22bc44b05075b13bb32.tar.gz
-8bcf30131a69c997a54727abd207178ac3a1783e0ab660ab5a94f977738c75ff35ba8abf665e889ae9976b7285923d3cb9251f6d4055b29682423689e64d8d6e  config-pine64-pinephonepro.aarch64
+0d4ee79a41a5ba2ada5d3ba76d1c1b28e95c296db7a5823a32a9d82810e29dcc7760825e892afb28318b87bafc06ae4a28d2003c22643417abff8ba4285de75f  linux-pine64-pinephonepro-1eb26797c1b9356281efff18a79dee892ddc590d.tar.gz
+782bfbcc65b20de4a7a92511bd32c7d47d7c1e187e355ce7e8471b689f43d85193999b141efa8e924eee47f6ef5b63e633749a4e129b8e18baed71854b6e93cc  config-pine64-pinephonepro.aarch64
 "
