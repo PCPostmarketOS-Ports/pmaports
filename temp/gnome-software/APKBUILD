@@ -2,7 +2,7 @@
 pkgname=gnome-software
 pkgver=9999_git20191031
 _commit="b915095540fa7ada6778aded0d51a93572762d89"
-pkgrel=2
+pkgrel=3
 pkgdesc="Software lets you install and update applications and system extensions"
 url="https://wiki.gnome.org/Apps/Software"
 arch="all !s390x !mips !mips64"
@@ -21,22 +21,22 @@ source="https://source.puri.sm/Librem5/gnome-software/-/archive/$_commit/gnome-s
 	"
 builddir="$srcdir/$pkgname-$_commit"
 
-case "$CARCH" in
-	x86*) makedepends="$makedepends fwupd-dev" ;;
-esac
-
 # gnome-software-plugin-apk is only a runtime dependency and unfortunately
 # not available on other arches yet due to LDC.
 case "$CARCH" in
 	x86_64|aarch64) depends="$depends gnome-software-plugin-apk" ;;
 esac
 
+# fwupd is only available for x86, x86_64, aarch64, and armv7
+case "$CARCH" in
+	x86|x86_64|aarch64|armv7) makedepends="$makedepends fwupd-dev" ;;
+esac
+
 build() {
 	case "$CARCH" in
-		x86*) conf="-Dfwupd=true" ;;
+		x86|x86_64|aarch64|armv7) conf="-Dfwupd=true" ;;
 		*) conf="-Dfwupd=false" ;;
 	esac
-
 
 	meson \
 		--prefix=/usr \
@@ -45,7 +45,6 @@ build() {
 		--localstatedir=/var \
 		--buildtype=plain \
 		-Dvalgrind=false \
-		-Dmalcontent=false \
 		-Dpackagekit=false \
 		-Dexternal_appstream=true \
 		$conf \
