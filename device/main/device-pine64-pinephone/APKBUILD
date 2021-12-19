@@ -5,8 +5,8 @@
 # Co-Maintainer: Clayton Craft <clayton@craftyguy.net>
 # Co-Maintainer: Dylan Van Assche <me@dylanvanassche.be>
 pkgname=device-pine64-pinephone
-pkgver=0.36
-pkgrel=1
+pkgver=0.37
+pkgrel=0
 pkgdesc="PINE64 PinePhone"
 url="https://postmarketos.org"
 license="MIT"
@@ -33,6 +33,9 @@ depends="
 	postmarketos-base
 	u-boot-pinephone>=2021.01_git20201228-r2
 	u-boot-tools
+	fwupd
+	fwupd-plugin-modem_manager
+	fwupd-plugin-fastboot
 	"
 makedepends="devicepkg-dev dtc"
 install="$pkgname.post-install $pkgname.post-upgrade $pkgname.pre-upgrade"
