@@ -1,0 +1,117 @@
+From b0ec741239030d00cf291d87883d5f76cdb79c19 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Mon, 20 Dec 2021 14:07:15 +0100
+Subject: [PATCH] udev: cancel reset if modem is already back
+
+Cancel reset if modem is back before reset sequence is started.
+When upgrading the modem through fwupd, it will enter fastboot.
+Therefore, it dissappears from the USB bus for a few ms.
+However, the eg25-manager considers this as an issue and
+resets the modem a bit later during the upgrade process.
+To avoid this, cancel the reset sequence if the modem is already
+back before the reset sequence is started. This will take less than 3
+seconds.
+---
+ src/manager.c | 11 +++++++----
+ src/manager.h |  3 ++-
+ src/udev.c    | 23 ++++++++++++++++-------
+ 3 files changed, 25 insertions(+), 12 deletions(-)
+
+diff --git a/src/manager.c b/src/manager.c
+index cba4e72..5d9e381 100644
+--- a/src/manager.c
++++ b/src/manager.c
+@@ -141,7 +141,7 @@ void modem_configure(struct EG25Manager *manager)
+ static gboolean modem_reset_done(struct EG25Manager* manager)
+ {
+     manager->modem_state = EG25_STATE_RESUMING;
+-    manager->reset_timer = 0;
++    manager->complete_reset_timer = 0;
+     return FALSE;
+ }
+ 
+@@ -149,7 +149,10 @@ gboolean modem_reset(struct EG25Manager *manager)
+ {
+     int fd, ret, len;
+ 
+-    if (manager->reset_timer) {
++    /* reset sequence started, cannot be canceled anymore */
++    manager->schedule_reset_timer = 0;
++
++    if (manager->complete_reset_timer) {
+         g_message("modem_reset: timer already setup, skipping...");
+         return G_SOURCE_REMOVE;
+     }
+@@ -210,7 +213,7 @@ gboolean modem_reset(struct EG25Manager *manager)
+      * 3s is long enough to make sure the modem has been bound back and
+      * short enough to ensure it hasn't been acquired by ModemManager
+      */
+-    manager->reset_timer = g_timeout_add_seconds(3, G_SOURCE_FUNC(modem_reset_done), manager);
++    manager->complete_reset_timer = g_timeout_add_seconds(3, G_SOURCE_FUNC(modem_reset_done), manager);
+ 
+     return G_SOURCE_REMOVE;
+ 
+@@ -228,7 +231,7 @@ error:
+     at_sequence_reset(manager);
+ 
+     // Setup timer for making sure we don't queue other reset commands
+-    manager->reset_timer = g_timeout_add_seconds(30, G_SOURCE_FUNC(modem_reset_done), manager);
++    manager->complete_reset_timer = g_timeout_add_seconds(30, G_SOURCE_FUNC(modem_reset_done), manager);
+ 
+     return G_SOURCE_REMOVE;
+ }
+diff --git a/src/manager.h b/src/manager.h
+index 2c36348..bccf5dc 100644
+--- a/src/manager.h
++++ b/src/manager.h
+@@ -70,7 +70,8 @@ enum EG25Config {
+ 
+ struct EG25Manager {
+     GMainLoop *loop;
+-    guint reset_timer;
++    guint complete_reset_timer;
++    guint schedule_reset_timer;
+     gboolean use_libusb;
+     guint usb_vid;
+     guint usb_pid;
+diff --git a/src/udev.c b/src/udev.c
+index 9790c15..a2e62a3 100644
+--- a/src/udev.c
++++ b/src/udev.c
+@@ -12,17 +12,26 @@ static void udev_event_cb(GUdevClient *client, gchar *action, GUdevDevice *devic
+ {
+     struct EG25Manager *manager = data;
+ 
+-    if (strcmp(action, "unbind") != 0 ||
+-        manager->modem_state == EG25_STATE_RESETTING ||
+-        !manager->modem_usb_id) {
++    if (!manager->modem_usb_id)
+         return;
+-        }
+ 
+     if (strcmp(g_udev_device_get_name(device), manager->modem_usb_id) == 0 &&
+-        manager->reset_timer == 0) {
+-        g_message("Lost modem, resetting...");
+-        g_timeout_add_seconds(2, G_SOURCE_FUNC(modem_reset), manager);
++        strcmp(action, "add") == 0 && manager->schedule_reset_timer != 0) {
++        g_message("Modem recovered before reset sequence was triggered, cancel reset.");
++        g_source_remove(manager->schedule_reset_timer);
++        manager->schedule_reset_timer = 0;
++        return;
+     }
++
++    if (strcmp(action, "unbind") != 0 ||
++        manager->modem_state == EG25_STATE_RESETTING ||
++        manager->complete_reset_timer != 0 ||
++        strcmp(g_udev_device_get_name(device), manager->modem_usb_id) != 0) {
++        return;
++    }
++
++    g_message("Lost modem, resetting...");
++    manager->schedule_reset_timer = g_timeout_add_seconds(3, G_SOURCE_FUNC(modem_reset), manager);
+ }
+ 
+ void udev_init (struct EG25Manager *manager, toml_table_t *config[])
+-- 
+2.33.1
+
