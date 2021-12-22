@@ -1,0 +1,46 @@
+# Forked from Alpine to make it adaptive.
+
+pkgname=gnome-firmware-updater
+pkgver=9999_git20211219
+pkgrel=0
+pkgdesc="Install firmware on devices"
+url="https://gitlab.gnome.org/hughsie/gnome-firmware-updater"
+arch="x86_64 x86 aarch64 armv7" # limited by fwupd
+license="GPL-2.0-only"
+makedepends="meson gtk+3.0-dev fwupd-dev libsoup-dev elogind-dev libxmlb-dev libhandy1-dev"
+options="!check" # no tests
+subpackages="$pkgname-lang"
+_commit="5bbf1086eeb7fb91d2819c612c9da751ad9697c7"
+source="https://gitlab.gnome.org/hughsie/gnome-firmware-updater/-/archive/$_commit/gnome-firmware-updater-$_commit.tar.gz
+	0001-trivial-ellipsize-and-wrap-labels.patch
+	0002-gfu-main-do-not-select-rows-on-start-up.patch
+	0003-gfu-main-hide-back-button-when-folded.patch
+	0004-gfu-main-enable-releases-leaflet-gestures.patch
+	0005-gfu-main-use-row-activated.patch
+	0006-gfu-main-correctly-display-remaining-time.patch
+	"
+builddir="$srcdir/$pkgname-$_commit"
+
+build() {
+	# man pages fail to build
+	abuild-meson \
+		-Dsystemd=false \
+		-Delogind=true \
+		-Dman=false \
+		. output
+	meson compile ${JOBS:+-j ${JOBS}} -C output
+}
+
+package() {
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+
+sha512sums="
+19b20d074d1dccbb2498ed26183d5c55a13f1bd83225a205dfc319dae673abfe1d46c31bd90e71d25a0f6cac6b1cf2bd7e012027719f59227e10ab5de5da7579  gnome-firmware-updater-5bbf1086eeb7fb91d2819c612c9da751ad9697c7.tar.gz
+e52fb6d2aa3bc2fba4c85fd7b35775f498a4fd7a03eeaa64fba19d6b044510c638178a16845befbc7ab5912d5a175cefb80bd1a0832530c21f16ade8eccc7a53  0001-trivial-ellipsize-and-wrap-labels.patch
+b5977513698ba1ea655ded6dd0a782c47a5c5888f7539c56388fdeacf87a0b7aea210db5859b9df83ff607e98c947d95b0aff9ab5d5c5151e2294970855477be  0002-gfu-main-do-not-select-rows-on-start-up.patch
+bbafc1438110aadab700a34d02f5364f1e82c2b1c5696b3eb310ffb7c79a414e44f024e73ea3c36c0d4a497884c3f126e30fd188de3c26bb3512777af86f03fa  0003-gfu-main-hide-back-button-when-folded.patch
+01cb64186e1a40927756f49fb52a28370a90ba312d337bbd9c4fca7f10eeac9c6d00c73177d1c0062b531fd6fbb5e00618a086fa94505e7ccc3565d5e7f224b8  0004-gfu-main-enable-releases-leaflet-gestures.patch
+51e0381135e4a5f6f6aee336f781c699c51f54a473c0906b479dd8b7e121f197517f5e5f6ed6f67cbad97204ced45efc438e0e600ac51bf5a4b90ee36cc6d895  0005-gfu-main-use-row-activated.patch
+0d2aebbc68df5047d2919bc05edf842b8261c5266c91f887b3db85cf929a1496c634a58ada51a1651ada8f557e73243bdc79af67c5fd89cc02a50c710b6c19bd  0006-gfu-main-correctly-display-remaining-time.patch
+"

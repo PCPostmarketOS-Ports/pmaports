@@ -1,0 +1,70 @@
+From 5777bc94fc5df625980f4dd845e7a92c0693c678 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Tue, 21 Dec 2021 19:22:50 +0100
+Subject: [PATCH 3/6] gfu-main: hide back button when folded
+
+Only on startup, back button is shown in all other cases
+when it is necessary for navigation.
+---
+ src/gfu-main.c | 27 +--------------------------
+ 1 file changed, 1 insertion(+), 26 deletions(-)
+
+diff --git a/src/gfu-main.c b/src/gfu-main.c
+index b8cac49..3822a69 100644
+--- a/src/gfu-main.c
++++ b/src/gfu-main.c
+@@ -1811,23 +1811,10 @@ gfu_main_client_connect_cb(GObject *source, GAsyncResult *res, gpointer user_dat
+ 					     self);
+ }
+ 
+-static gboolean
+-gfu_main_button_back_visible_transform(GBinding *binding,
+-				       const GValue *from_value,
+-				       GValue *to_value,
+-				       gpointer user_data)
+-{
+-	GList *children = gtk_container_get_children(GTK_CONTAINER(user_data));
+-	const GObject *object = g_value_get_object(from_value);
+-	g_value_set_boolean(to_value, GTK_WIDGET(children->data) == GTK_WIDGET(object));
+-	return TRUE;
+-}
+-
+ static void
+ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ {
+ 	GtkWidget *w;
+-	HdyLeaflet *l;
+ 	GtkWidget *main_window;
+ 	gint retval;
+ 	g_autofree gchar *filename = NULL;
+@@ -1851,7 +1838,7 @@ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ 
+ 	main_window = GTK_WIDGET(gtk_builder_get_object(self->builder, "dialog_main"));
+ 	gtk_application_add_window(self->application, GTK_WINDOW(main_window));
+-	gtk_window_set_default_size(GTK_WINDOW(main_window), 1024, 600);
++	gtk_window_set_default_size(GTK_WINDOW(main_window), 360, 600);
+ 
+ 	/* hide window first so that the dialogue resizes itself without redrawing */
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "stack_main"));
+@@ -1869,18 +1856,6 @@ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "button_back"));
+ 	g_signal_connect(w, "clicked", G_CALLBACK(gfu_main_button_back_cb), self);
+ 
+-	l = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
+-	g_object_bind_property(l, "folded", w, "visible", G_BINDING_SYNC_CREATE);
+-	g_object_bind_property_full(l,
+-				    "visible_child",
+-				    w,
+-				    "visible",
+-				    G_BINDING_SYNC_CREATE,
+-				    gfu_main_button_back_visible_transform,
+-				    NULL,
+-				    l,
+-				    NULL);
+-
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "button_install"));
+ 	g_signal_connect(w, "clicked", G_CALLBACK(gfu_main_release_install_file_cb), self);
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "button_infobar_enable_lvfs"));
+-- 
+2.33.1
+

@@ -1,0 +1,344 @@
+From c85f397804c9ec92e6e72a2c7d493196afdee8e5 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Tue, 21 Dec 2021 18:54:12 +0100
+Subject: [PATCH 2/6] gfu-main: do not select rows on start up
+
+Selecting rows conflicts with Handy Leaflets.
+Do not select one and show a placeholder when none is selected.
+---
+ src/gfu-main.c  |  77 +++++++++++++++++++-----------
+ src/gfu-main.ui | 124 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 172 insertions(+), 29 deletions(-)
+
+diff --git a/src/gfu-main.c b/src/gfu-main.c
+index 8360a17..b8cac49 100644
+--- a/src/gfu-main.c
++++ b/src/gfu-main.c
+@@ -565,10 +565,6 @@ gfu_main_device_added_cb(FwupdClient *client, FwupdDevice *device, GfuMain *self
+ 	l = gfu_device_row_new(device);
+ 	gtk_widget_set_visible(l, TRUE);
+ 	gtk_list_box_insert(GTK_LIST_BOX(w), l, -1);
+-
+-	/* if no row is selected (list was previously empty), select the first one */
+-	if (gtk_list_box_get_selected_row(GTK_LIST_BOX(w)) == NULL)
+-		gtk_list_box_select_row(GTK_LIST_BOX(w), GTK_LIST_BOX_ROW(l));
+ }
+ 
+ static void
+@@ -581,14 +577,11 @@ gfu_main_remove_device_from_list(GtkWidget *row, GfuDeviceRowHelper *rowcheck)
+ 		return;
+ 
+ 	if (fwupd_device_compare(gfu_device_row_get_device(GFU_DEVICE_ROW(row)), result) == 0) {
+-		/* if row to be removed is the currently selected row, select the first row of the
+-		 * list */
++		/* if row to be removed is the currently selected row, unselect it first */
+ 		GtkListBoxRow *sel = gtk_list_box_get_selected_row(GTK_LIST_BOX(w));
+ 		if (fwupd_device_compare(gfu_device_row_get_device(GFU_DEVICE_ROW(sel)), result) ==
+ 		    0) {
+-			GtkListBoxRow *l = gtk_list_box_get_row_at_index(GTK_LIST_BOX(w), 0);
+-			if (l != NULL)
+-				gtk_list_box_select_row(GTK_LIST_BOX(w), l);
++        gtk_list_box_unselect_row(GTK_LIST_BOX(w), sel);
+ 		}
+ 		/* remove row corresponding to the device */
+ 		gtk_container_remove(GTK_CONTAINER(w), row);
+@@ -845,11 +838,8 @@ gfu_main_update_devices_cb(GObject *source, GAsyncResult *res, gpointer user_dat
+ 		gtk_list_box_insert(GTK_LIST_BOX(w), l, -1);
+ 	}
+ 
+-	/* if no row is selected and there are rows in the list, select the first one */
+-	if (gtk_list_box_get_selected_row(GTK_LIST_BOX(w)) == NULL && l != NULL) {
+-		gtk_list_box_select_row(GTK_LIST_BOX(w),
+-					gtk_list_box_get_row_at_index(GTK_LIST_BOX(w), 0));
+-	}
++  self->mode = GFU_MAIN_MODE_DEVICE;
++  gfu_main_refresh_ui(self);
+ }
+ 
+ static void
+@@ -1109,7 +1099,6 @@ gfu_main_update_devices_post_install_cb(GObject *source_object,
+ 		/* update our current device now that new firmware has been installed */
+ 		if (g_strcmp0(helper->device_id, fwupd_device_get_id(device)) == 0) {
+ 			helper->self->device = device;
+-			gtk_list_box_select_row(GTK_LIST_BOX(w), GTK_LIST_BOX_ROW(l));
+ 		}
+ 	}
+ 
+@@ -1122,12 +1111,6 @@ gfu_main_update_devices_post_install_cb(GObject *source_object,
+ 	/* reboot or shutdown if necessary (UEFI update) */
+ 	gfu_main_reboot_shutdown_prompt(helper->self);
+ 
+-	/* if no row is selected and there are rows in the list, select the first one */
+-	if (gtk_list_box_get_selected_row(GTK_LIST_BOX(w)) == NULL && l != NULL) {
+-		gtk_list_box_select_row(GTK_LIST_BOX(w),
+-					gtk_list_box_get_row_at_index(GTK_LIST_BOX(w), 0));
+-	}
+-
+ 	/* update release list */
+ 	fwupd_client_get_releases_async(helper->self->client,
+ 					helper->device_id,
+@@ -1412,9 +1395,13 @@ gfu_main_device_releases_cb(GtkWidget *widget, GfuMain *self)
+ {
+ 	HdyLeaflet *leaflet;
+ 	GList *children;
++  GtkListBox *listbox;
++
+ 	leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_firmware"));
+ 	children = gtk_container_get_children(GTK_CONTAINER(leaflet));
+ 	hdy_leaflet_set_visible_child(leaflet, GTK_WIDGET(children->data));
++  listbox = GTK_LIST_BOX(gtk_builder_get_object(self->builder, "listbox_firmware"));
++  gtk_list_box_unselect_all(listbox);
+ 	self->mode = GFU_MAIN_MODE_RELEASE;
+ 	gfu_main_refresh_ui(self);
+ }
+@@ -1614,6 +1601,21 @@ gfu_main_release_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *s
+ 	FwupdRelease *release;
+ 	HdyLeaflet *leaflet;
+ 	GList *children;
++  GtkBox *placeholder;
++  GtkScrolledWindow *release_metadata;
++
++  leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_firmware"));
++
++  if (row == NULL && self->mode == GFU_MAIN_MODE_RELEASE) {
++    /* swap metadata with placeholder, if not folded */
++    if (!hdy_leaflet_get_folded(leaflet)) {
++      placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "release_placeholder"));
++      gtk_widget_set_visible(GTK_WIDGET(placeholder), TRUE);
++      release_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "release_metadata"));
++      gtk_widget_set_visible(GTK_WIDGET(release_metadata), FALSE);
++    }
++    return;
++  }
+ 
+ 	/* Ignore if not in the "release" view */
+ 	if (!GFU_IS_RELEASE_ROW(GFU_RELEASE_ROW(row)))
+@@ -1623,11 +1625,16 @@ gfu_main_release_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *s
+ 	g_set_object(&self->release, release);
+ 
+ 	/* update leaflet */
+-	leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_firmware"));
+ 	children = gtk_container_get_children(GTK_CONTAINER(leaflet));
+ 	if (children->next != NULL)
+ 		hdy_leaflet_set_visible_child(leaflet, GTK_WIDGET(children->next->data));
+ 
++  /* swap placeholder with metadata */
++  placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "release_placeholder"));
++  gtk_widget_set_visible(GTK_WIDGET(placeholder), FALSE);
++  release_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "release_metadata"));
++  gtk_widget_set_visible(GTK_WIDGET(release_metadata), TRUE);
++
+ 	gfu_main_refresh_ui(self);
+ }
+ 
+@@ -1637,10 +1644,21 @@ gfu_main_device_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *se
+ 	FwupdDevice *device;
+ 	HdyLeaflet *leaflet;
+ 	GList *children;
+-	g_autoptr(GError) error = NULL;
+-
+-	if (row == NULL)
+-		return;
++  GtkBox *placeholder;
++  GtkScrolledWindow *device_metadata;
++
++  leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
++
++	if (row == NULL && self->mode == GFU_MAIN_MODE_DEVICE) {
++    /* swap metadata with placeholder, if not folded */
++    if (!hdy_leaflet_get_folded(leaflet)) {
++      placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "device_placeholder"));
++      gtk_widget_set_visible(GTK_WIDGET(placeholder), TRUE);
++      device_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "device_metadata"));
++      gtk_widget_set_visible(GTK_WIDGET(device_metadata), FALSE);
++    }
++    return;
++  }
+ 
+ 	device = gfu_device_row_get_device(GFU_DEVICE_ROW(row));
+ 
+@@ -1658,11 +1676,16 @@ gfu_main_device_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *se
+ 	}
+ 
+ 	/* update leaflet */
+-	leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
+ 	children = gtk_container_get_children(GTK_CONTAINER(leaflet));
+ 	if (children->next != NULL)
+ 		hdy_leaflet_set_visible_child(leaflet, GTK_WIDGET(children->next->data));
+ 
++  /* swap placeholder with metadata */
++  placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "device_placeholder"));
++  gtk_widget_set_visible(GTK_WIDGET(placeholder), FALSE);
++  device_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "device_metadata"));
++  gtk_widget_set_visible(GTK_WIDGET(device_metadata), TRUE);
++
+ 	gfu_main_refresh_ui(self);
+ }
+ 
+diff --git a/src/gfu-main.ui b/src/gfu-main.ui
+index 543358f..c5bde7e 100644
+--- a/src/gfu-main.ui
++++ b/src/gfu-main.ui
+@@ -109,6 +109,7 @@
+                     <property name="can-focus">True</property>
+                     <property name="hscrollbar-policy">never</property>
+                     <property name="shadow-type">in</property>
++                    <property name="width-request">300</property>
+                     <child>
+                       <object class="GtkViewport">
+                         <property name="visible">True</property>
+@@ -136,8 +137,65 @@
+                         <property name="orientation">vertical</property>
+                         <property name="spacing">12</property>
+                         <child>
+-                          <object class="GtkScrolledWindow">
++                          <object class="GtkBox" id="device_placeholder">
+                             <property name="visible">True</property>
++                            <property name="no_show_all">True</property>
++                            <property name="can_focus">False</property>
++                            <property name="hexpand">False</property>
++                            <property name="vexpand">True</property>
++                            <property name="valign">center</property>
++                            <property name="orientation">vertical</property>
++                            <property name="spacing">12</property>
++                            <child>
++                              <object class="GtkImage">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="halign">center</property>
++                                <property name="valign">center</property>
++                                <property name="pixel_size">128</property>
++                                <property name="icon_name">org.gnome.Firmware</property>
++                              </object>
++                            </child>
++                            <child>
++                              <object class="GtkLabel">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="xalign">0.5</property>
++                                <property name="wrap">True</property>
++                                <property name="wrap_mode">word-char</property>
++                                <property name="ellipsize">end</property>
++                                <property name="justify">fill</property>
++                                <property name="label" translatable="yes">No device selected</property>
++                                <attributes>
++                                  <attribute name="weight" value="bold"/>
++                                  <attribute name="scale" value="1.25"/>
++                                </attributes>
++                                <style>
++                                  <class name="dim-label"/>
++                                </style>
++                              </object>
++                            </child>
++                            <child>
++                              <object class="GtkLabel">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="xalign">0.5</property>
++                                <property name="wrap">True</property>
++                                <property name="wrap_mode">word-char</property>
++                                <property name="ellipsize">end</property>
++                                <property name="justify">center</property>
++                                <property name="lines">3</property>
++                                <property name="label" translatable="yes">Select a device from the list.</property>
++                                <style>
++                                  <class name="dim-label"/>
++                                </style>
++                              </object>
++                            </child>
++                          </object>
++                        </child>
++                        <child>
++                          <object class="GtkScrolledWindow" id="device_metadata">
++                            <property name="visible">False</property>
+                             <property name="can-focus">True</property>
+                             <property name="min-content-width">300</property>
+                             <child>
+@@ -745,6 +803,7 @@
+                     <property name="can-focus">True</property>
+                     <property name="hscrollbar-policy">never</property>
+                     <property name="shadow-type">in</property>
++                    <property name="width-request">300</property>
+                     <child>
+                       <object class="GtkViewport">
+                         <property name="visible">True</property>
+@@ -771,7 +830,67 @@
+                         <property name="orientation">vertical</property>
+                         <property name="spacing">10</property>
+                         <child>
+-                          <object class="GtkScrolledWindow">
++                          <object class="GtkBox" id="release_placeholder">
++                            <property name="visible">True</property>
++                            <property name="no_show_all">True</property>
++                            <property name="can_focus">False</property>
++                            <property name="halign">center</property>
++                            <property name="valign">center</property>
++                            <property name="hexpand">True</property>
++                            <property name="vexpand">True</property>
++                            <property name="orientation">vertical</property>
++                            <property name="spacing">12</property>
++                            <child>
++                              <object class="GtkImage">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="halign">center</property>
++                                <property name="valign">center</property>
++                                <property name="pixel_size">128</property>
++                                <property name="icon_name">org.gnome.Firmware</property>
++                              </object>
++                            </child>
++                            <child>
++                              <object class="GtkLabel">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="halign">center</property>
++                                <property name="valign">center</property>
++                                <property name="wrap">True</property>
++                                <property name="wrap_mode">word-char</property>
++                                <property name="ellipsize">end</property>
++                                <property name="justify">fill</property>
++                                <property name="label" translatable="yes">No release selected</property>
++                                <attributes>
++                                  <attribute name="weight" value="bold"/>
++                                  <attribute name="scale" value="1.25"/>
++                                </attributes>
++                                <style>
++                                  <class name="dim-label"/>
++                                </style>
++                              </object>
++                            </child>
++                            <child>
++                              <object class="GtkLabel">
++                                <property name="visible">True</property>
++                                <property name="can_focus">False</property>
++                                <property name="halign">center</property>
++                                <property name="valign">center</property>
++                                <property name="wrap">True</property>
++                                <property name="wrap_mode">word-char</property>
++                                <property name="ellipsize">end</property>
++                                <property name="justify">center</property>
++                                <property name="lines">3</property>
++                                <property name="label" translatable="yes">Select a release from the list.</property>
++                                <style>
++                                  <class name="dim-label"/>
++                                </style>
++                              </object>
++                            </child>
++                          </object>
++                        </child>
++                        <child>
++                          <object class="GtkScrolledWindow" id="release_metadata">
+                             <property name="visible">True</property>
+                             <property name="can-focus">True</property>
+                             <property name="min-content-width">300</property>
+@@ -1385,6 +1504,7 @@
+                         <property name="can-focus">False</property>
+                         <property name="border-width">21</property>
+                         <property name="orientation">vertical</property>
++                        <property name="width-request">300</property>
+                         <child>
+                           <object class="GtkSpinner">
+                             <property name="visible">True</property>
+-- 
+2.33.1
+

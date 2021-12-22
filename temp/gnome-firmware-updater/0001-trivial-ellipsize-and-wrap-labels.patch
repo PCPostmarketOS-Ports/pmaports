@@ -1,0 +1,364 @@
+From 45071f914656b40567c6f3e640bfe096003bc860 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Mon, 20 Dec 2021 20:03:13 +0100
+Subject: [PATCH 1/6] trivial: ellipsize and wrap labels
+
+Avoids unusable scrollbars on mobile devices
+---
+ src/gfu-device-row.ui  |  3 +++
+ src/gfu-main.c         |  3 ++-
+ src/gfu-main.ui        | 56 +++++++++++++++++++++++++++++++++++++++++-
+ src/gfu-release-row.ui |  3 +++
+ 4 files changed, 63 insertions(+), 2 deletions(-)
+
+diff --git a/src/gfu-device-row.ui b/src/gfu-device-row.ui
+index 7c54260..14ff6f6 100644
+--- a/src/gfu-device-row.ui
++++ b/src/gfu-device-row.ui
+@@ -48,6 +48,9 @@
+                 <property name="can_focus">False</property>
+                 <property name="halign">start</property>
+                 <property name="label">Name</property>
++                <property name="hexpand">True</property>
++                <property name="xalign">0</property>
++                <property name="ellipsize">end</property>
+               </object>
+               <packing>
+                 <property name="expand">True</property>
+diff --git a/src/gfu-main.c b/src/gfu-main.c
+index a2d0633..8360a17 100644
+--- a/src/gfu-main.c
++++ b/src/gfu-main.c
+@@ -186,8 +186,9 @@ gfu_main_set_device_flags(GfuMain *self, guint64 flags)
+ 		gtk_grid_attach(w, icon, 0, count, 1, 1);
+ 
+ 		label = gtk_label_new(flag->str);
+-		gtk_label_set_xalign(GTK_LABEL(label), 0);
++    gtk_label_set_xalign(GTK_LABEL(label), 0);
+ 		gtk_widget_set_visible(label, TRUE);
++    gtk_label_set_line_wrap(label, TRUE);
+ 		gtk_grid_attach(w, label, 1, count, 1, 1);
+ 
+ 		count++;
+diff --git a/src/gfu-main.ui b/src/gfu-main.ui
+index 43be4e9..543358f 100644
+--- a/src/gfu-main.ui
++++ b/src/gfu-main.ui
+@@ -183,6 +183,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0.1.2</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -228,6 +230,7 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0.1.2</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -241,6 +244,7 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0.1.2</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -254,6 +258,7 @@
+                                             <property name="halign">end</property>
+                                             <property name="label" translatable="yes">Vendor</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -270,6 +275,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0.1.2</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -284,6 +291,7 @@
+                                             <property name="valign">start</property>
+                                             <property name="label" translatable="yes">GUIDs</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -300,6 +308,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">REPLACED</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                             <style>
+                                               <class name="monospace"/>
+                                             </style>
+@@ -317,6 +327,7 @@
+                                             <property name="valign">start</property>
+                                             <property name="label" translatable="yes">Flags</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -373,6 +384,7 @@
+                                             <property name="halign">end</property>
+                                             <property name="label" translatable="yes">Install Duration</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -389,6 +401,7 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">REPLACED</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -402,6 +415,7 @@
+                                             <property name="halign">end</property>
+                                             <property name="label" translatable="yes">Flashes Left</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -418,6 +432,7 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">REPLACED</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -431,6 +446,7 @@
+                                             <property name="halign">end</property>
+                                             <property name="label" translatable="yes">Update Error</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -448,6 +464,7 @@
+                                             <property name="label">REPLACED</property>
+                                             <property name="wrap">True</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -461,6 +478,7 @@
+                                             <property name="halign">end</property>
+                                             <property name="label" translatable="yes">Serial Number</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -477,6 +495,7 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">REPLACED</property>
+                                             <property name="selectable">True</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -491,6 +510,7 @@
+                                             <property name="valign">start</property>
+                                             <property name="label" translatable="yes">Checksums</property>
+                                             <property name="xalign">1</property>
++                                            <property name="wrap">True</property>
+                                             <style>
+                                               <class name="dim-label"/>
+                                             </style>
+@@ -506,6 +526,7 @@
+                                             <property name="can-focus">False</property>
+                                             <property name="halign">start</property>
+                                             <property name="label">REPLACED</property>
++                                            <property name="wrap">True</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -798,6 +819,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0.1.2</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -828,7 +851,9 @@
+                                             <property name="label">replaced</property>
+                                             <property name="wrap">True</property>
+                                             <property name="selectable">True</property>
+-                                            <property name="max-width-chars">50</property>
++                                            <property name="lines">5</property>
++                                            <property name="wrap_mode">word-char</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -859,6 +884,9 @@
+                                             <property name="label">replaced</property>
+                                             <property name="wrap">True</property>
+                                             <property name="selectable">True</property>
++                                            <property name="lines">20</property>
++                                            <property name="wrap_mode">word-char</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -887,6 +915,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -915,6 +945,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -943,6 +975,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -971,6 +1005,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1000,6 +1036,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                             <style>
+                                               <class name="monospace"/>
+                                             </style>
+@@ -1031,6 +1069,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1059,6 +1099,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">0</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1087,6 +1129,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1116,6 +1160,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1144,6 +1190,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1172,6 +1220,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1201,6 +1251,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+@@ -1230,6 +1282,8 @@
+                                             <property name="halign">start</property>
+                                             <property name="label">replaced</property>
+                                             <property name="selectable">True</property>
++                                            <property name="ellipsize">end</property>
++                                            <property name="xalign">0</property>
+                                           </object>
+                                           <packing>
+                                             <property name="left-attach">1</property>
+diff --git a/src/gfu-release-row.ui b/src/gfu-release-row.ui
+index f90d521..c58f134 100644
+--- a/src/gfu-release-row.ui
++++ b/src/gfu-release-row.ui
+@@ -47,6 +47,8 @@
+                 <property name="can_focus">False</property>
+                 <property name="halign">start</property>
+                 <property name="label">Name</property>
++                <property name="ellipsize">end</property>
++                <property name="xalign">0</property>
+               </object>
+               <packing>
+                 <property name="expand">True</property>
+@@ -61,6 +63,7 @@
+                 <property name="halign">start</property>
+                 <property name="label">Version</property>
+                 <property name="ellipsize">end</property>
++                <property name="xalign">0</property>
+                 <style>
+                   <class name="dim-label"/>
+                 </style>
+-- 
+2.33.1
+

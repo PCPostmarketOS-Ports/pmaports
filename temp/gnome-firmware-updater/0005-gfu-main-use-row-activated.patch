@@ -1,0 +1,52 @@
+From e1fe396aaa52b2ba0e566bac5c596b09dd1b1291 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Wed, 22 Dec 2021 07:38:52 +0100
+Subject: [PATCH 5/6] gfu-main: use row-activated
+
+row-selected signal is sometimes triggered even when the user
+doesn't click on the list item.
+Work around this issue by using the row-activated signal.
+---
+ src/gfu-main.c  | 4 ++--
+ src/gfu-main.ui | 2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/gfu-main.c b/src/gfu-main.c
+index 3822a69..49eb3cc 100644
+--- a/src/gfu-main.c
++++ b/src/gfu-main.c
+@@ -1861,9 +1861,9 @@ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "button_infobar_enable_lvfs"));
+ 	g_signal_connect(w, "clicked", G_CALLBACK(gfu_main_enable_lvfs_cb), self);
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "listbox_main"));
+-	g_signal_connect(w, "row-selected", G_CALLBACK(gfu_main_device_row_selected_cb), self);
++	g_signal_connect(w, "row-activated", G_CALLBACK(gfu_main_device_row_selected_cb), self);
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "listbox_firmware"));
+-	g_signal_connect(w, "row-selected", G_CALLBACK(gfu_main_release_row_selected_cb), self);
++	g_signal_connect(w, "row-activated", G_CALLBACK(gfu_main_release_row_selected_cb), self);
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "infobar_enable_lvfs"));
+ 	g_signal_connect(w, "close", G_CALLBACK(gfu_main_infobar_close_cb), self);
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "infobar_enable_lvfs"));
+diff --git a/src/gfu-main.ui b/src/gfu-main.ui
+index 6b0ffc2..7e9aa08 100644
+--- a/src/gfu-main.ui
++++ b/src/gfu-main.ui
+@@ -119,6 +119,7 @@
+                           <object class="GtkListBox" id="listbox_main">
+                             <property name="visible">True</property>
+                             <property name="can-focus">False</property>
++                            <property name="selection-mode">none</property>
+                           </object>
+                         </child>
+                       </object>
+@@ -814,6 +815,7 @@
+                           <object class="GtkListBox" id="listbox_firmware">
+                             <property name="visible">True</property>
+                             <property name="can-focus">False</property>
++                            <property name="selection-mode">none</property>
+                           </object>
+                         </child>
+                       </object>
+-- 
+2.33.1
+

@@ -1,0 +1,272 @@
+From ea4126004c384efb681617fa5dec5aaa23fbdfe1 Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Wed, 22 Dec 2021 14:14:10 +0100
+Subject: [PATCH 6/6] gfu-main: correctly display remaining time
+
+Percentage evaluation was done in the wrong callback.
+The percentage was never updated as the device callback
+does not get triggered when the percentage is updated.
+Consequently, the remaining time was never calculated and displayed.
+
+Moreover, display the remaining time immediately as some parts
+of the upgrade process might be faster or slower so we inform the
+user as soon as possible.
+---
+ src/gfu-main.c  | 147 ++++++++++++++++++++++++++++--------------------
+ src/gfu-main.ui |   4 ++
+ 2 files changed, 91 insertions(+), 60 deletions(-)
+
+diff --git a/src/gfu-main.c b/src/gfu-main.c
+index 49eb3cc..1ab856d 100644
+--- a/src/gfu-main.c
++++ b/src/gfu-main.c
+@@ -214,7 +214,11 @@ gfu_main_refresh_ui(GfuMain *self)
+ 	HdyLeaflet *l;
+ 	GList *children;
+ 	gboolean verification_matched = FALSE;
+-	g_autoptr(GPtrArray) upgrades = NULL;
++  GtkListBox *lb;
++  GtkBox *device_placeholder;
++  GtkBox *release_placeholder;
++  GtkScrolledWindow *device_metadata;
++  GtkScrolledWindow *release_metadata;
+ 
+ 	/* set stack */
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "stack_main"));
+@@ -498,6 +502,24 @@ gfu_main_refresh_ui(GfuMain *self)
+ 	l = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
+ 	children = gtk_container_get_children(GTK_CONTAINER(l));
+ 
++  /* swap device metadata with placeholder, if not folded */
++  lb = GTK_LIST_BOX(gtk_builder_get_object(self->builder, "listbox_main"));
++  if (!hdy_leaflet_get_folded(l) && gtk_list_box_get_selected_row(lb) == NULL) {
++    device_placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "device_placeholder"));
++    gtk_widget_set_visible(GTK_WIDGET(device_placeholder), TRUE);
++    device_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "device_metadata"));
++    gtk_widget_set_visible(GTK_WIDGET(device_metadata), FALSE);
++  }
++
++  /* swap release metadata with placeholder, if not folded */
++  lb = GTK_LIST_BOX(gtk_builder_get_object(self->builder, "listbox_firmware"));
++  if (!hdy_leaflet_get_folded(l) && gtk_list_box_get_selected_row(lb) == NULL) {
++    release_placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "release_placeholder"));
++    gtk_widget_set_visible(GTK_WIDGET(release_placeholder), TRUE);
++    release_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "release_metadata"));
++    gtk_widget_set_visible(GTK_WIDGET(release_metadata), FALSE);
++  }
++
+ 	/* refresh button */
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "menu_button"));
+ 	gtk_widget_set_visible(w, self->mode != GFU_MAIN_MODE_RELEASE);
+@@ -907,13 +929,53 @@ gfu_main_show_install_loading(GfuMain *self, gboolean show)
+ 	gtk_widget_set_visible(w, !show);
+ }
+ 
++static gchar *
++gfu_main_time_remaining_str(GfuMain *self, gint percentage)
++{
++  gdouble elapsed;
++
++  elapsed = g_timer_elapsed(self->time_elapsed, NULL);
++	self->last_estimate = elapsed / percentage * (100 - percentage);
++
++  /* upgrade just started, remaining time inaccurate */
++  if (elapsed < 60)
++    return NULL;
++
++	/* less than 5 seconds remaining */
++	if (self->last_estimate < 5)
++		return NULL;
++
++	/* less than 60 seconds remaining */
++	if (self->last_estimate < 60) {
++		/* TRANSLATORS: time remaining for completing firmware flash */
++		return g_strdup(_("Less than one minute remaining"));
++	}
++
++	/* more than a minute */
++	return g_strdup_printf(
++	    ngettext("%.0f minute remaining", "%.0f minutes remaining", self->last_estimate / 60),
++	    self->last_estimate / 60);
++}
++
+ static void
+ gfu_main_client_percentage_changed_cb(FwupdClient *client, GParamSpec *pspec, GfuMain *self)
+ {
+-	g_autofree gchar *str = NULL;
++  gint percentage;
++	g_autoptr(GString) status_str = g_string_new(NULL);
++
+ 	g_debug("progress: %u%%", fwupd_client_get_percentage(client));
+-	str = g_strdup_printf("%s (%u%%)", _("Downloading"), fwupd_client_get_percentage(client));
+-	gfu_main_set_install_loading_label(self, str);
++
++  /* update progress */
++	percentage = fwupd_client_get_percentage(self->client);
++	g_string_append_printf(status_str, "%s: (%d%%)", _("Flashing"), percentage);
++
++	/* estimate of time remaining */
++	g_autofree gchar *remaining = gfu_main_time_remaining_str(self, percentage);
++  g_debug("Time remaining: %s", remaining);
++	if (remaining != NULL)
++		g_string_append_printf(status_str, "\n%s…", remaining);
++
++	gfu_main_set_install_status_label(self, status_str->str);
+ }
+ 
+ static void
+@@ -1649,14 +1711,7 @@ gfu_main_device_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *se
+ 
+   leaflet = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
+ 
+-	if (row == NULL && self->mode == GFU_MAIN_MODE_DEVICE) {
+-    /* swap metadata with placeholder, if not folded */
+-    if (!hdy_leaflet_get_folded(leaflet)) {
+-      placeholder = GTK_BOX(gtk_builder_get_object(self->builder, "device_placeholder"));
+-      gtk_widget_set_visible(GTK_WIDGET(placeholder), TRUE);
+-      device_metadata = GTK_SCROLLED_WINDOW(gtk_builder_get_object(self->builder, "device_metadata"));
+-      gtk_widget_set_visible(GTK_WIDGET(device_metadata), FALSE);
+-    }
++	if (row == NULL || self->mode != GFU_MAIN_MODE_DEVICE) {
+     return;
+   }
+ 
+@@ -1689,42 +1744,6 @@ gfu_main_device_row_selected_cb(GtkListBox *box, GtkListBoxRow *row, GfuMain *se
+ 	gfu_main_refresh_ui(self);
+ }
+ 
+-static gboolean
+-gfu_main_estimate_ready(GfuMain *self, guint percentage)
+-{
+-	gdouble old;
+-	gdouble elapsed;
+-
+-	if (percentage == 0 || percentage == 100)
+-		return FALSE;
+-
+-	old = self->last_estimate;
+-	elapsed = g_timer_elapsed(self->time_elapsed, NULL);
+-	self->last_estimate = elapsed / percentage * (100 - percentage);
+-
+-	/* estimate is ready if we have decreased */
+-	return old > self->last_estimate;
+-}
+-
+-static gchar *
+-gfu_main_time_remaining_str(GfuMain *self)
+-{
+-	/* less than 5 seconds remaining */
+-	if (self->last_estimate < 5)
+-		return NULL;
+-
+-	/* less than 60 seconds remaining */
+-	if (self->last_estimate < 60) {
+-		/* TRANSLATORS: time remaining for completing firmware flash */
+-		return g_strdup(_("Less than one minute remaining"));
+-	}
+-
+-	/* more than a minute */
+-	return g_strdup_printf(
+-	    ngettext("%.0f minute remaining", "%.0f minutes remaining", self->last_estimate / 60),
+-	    self->last_estimate / 60);
+-}
+-
+ static void
+ gfu_main_set_feature_flags_cb(GObject *source, GAsyncResult *res, gpointer user_data)
+ {
+@@ -1811,10 +1830,22 @@ gfu_main_client_connect_cb(GObject *source, GAsyncResult *res, gpointer user_dat
+ 					     self);
+ }
+ 
++static gboolean
++gfu_selection_mode_transform (GBinding *binding,
++                              const GValue *from_value,
++                              GValue *to_value,
++                              gpointer user_data)
++{
++       gboolean folded = g_value_get_boolean(from_value);
++       g_value_set_enum (to_value, folded ? GTK_SELECTION_NONE : GTK_SELECTION_SINGLE);
++       return TRUE;
++}
++
+ static void
+ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ {
+ 	GtkWidget *w;
++  HdyLeaflet *l;
+ 	GtkWidget *main_window;
+ 	gint retval;
+ 	g_autofree gchar *filename = NULL;
+@@ -1873,6 +1904,14 @@ gfu_main_startup_cb(GApplication *application, GfuMain *self)
+ 	w = GTK_WIDGET(gtk_builder_get_object(self->builder, "listbox_main"));
+ 	gtk_list_box_set_sort_func(GTK_LIST_BOX(w), gfu_main_sort_list_box_cb, self, NULL);
+ 
++  w = GTK_WIDGET(gtk_builder_get_object(self->builder, "listbox_firmware"));
++  l = HDY_LEAFLET(gtk_builder_get_object(self->builder, "leaflet_main"));
++  g_object_bind_property_full(l, "folded", w, "selection-mode", G_BINDING_SYNC_CREATE,
++                              gfu_selection_mode_transform, NULL, NULL, NULL);
++  w = GTK_WIDGET(gtk_builder_get_object(self->builder, "listbox_main"));
++  g_object_bind_property_full(l, "folded", w, "selection-mode", G_BINDING_SYNC_CREATE,
++                              gfu_selection_mode_transform, NULL, NULL, NULL);
++
+ 	/* show main UI */
+ 	gfu_main_update_title(self);
+ 	gfu_main_refresh_ui(self);
+@@ -1899,18 +1938,6 @@ gfu_main_client_device_changed_cb(FwupdClient *client, FwupdDevice *device, GfuM
+ 			self->current_message = g_strdup(tmp);
+ 	}
+ 
+-	/* update progress */
+-	percentage = fwupd_client_get_percentage(self->client);
+-	g_string_append_printf(status_str, "%s: %d%%\n", gfu_status_to_string(status), percentage);
+-
+-	/* once we have good data show an estimate of time remaining */
+-	if (gfu_main_estimate_ready(self, percentage)) {
+-		g_autofree gchar *remaining = gfu_main_time_remaining_str(self);
+-		if (remaining != NULL)
+-			g_string_append_printf(status_str, "%s…", remaining);
+-	}
+-	gfu_main_set_install_status_label(self, status_str->str);
+-
+ 	/* same as last time, so ignore */
+ 	if (self->device != NULL && fwupd_device_compare(self->device, device) == 0)
+ 		return;
+diff --git a/src/gfu-main.ui b/src/gfu-main.ui
+index 7e9aa08..8009060 100644
+--- a/src/gfu-main.ui
++++ b/src/gfu-main.ui
+@@ -751,6 +751,7 @@
+                             <property name="halign">center</property>
+                             <property name="valign">start</property>
+                             <property name="label" translatable="yes">Loading…</property>
++                            <property name="justify">center</property>
+                             <style>
+                               <class name="dim-label"/>
+                             </style>
+@@ -768,6 +769,7 @@
+                             <property name="halign">center</property>
+                             <property name="valign">start</property>
+                             <property name="label" translatable="yes">0%</property>
++                            <property name="justify">center</property>
+                             <style>
+                               <class name="dim-label"/>
+                             </style>
+@@ -1532,6 +1534,7 @@
+                                 <property name="visible">True</property>
+                                 <property name="can-focus">False</property>
+                                 <property name="label" translatable="yes">Loading...</property>
++                                <property name="justify">center</property>
+                               </object>
+                               <packing>
+                                 <property name="expand">True</property>
+@@ -1552,6 +1555,7 @@
+                             <property name="can-focus">False</property>
+                             <property name="halign">center</property>
+                             <property name="valign">start</property>
++                            <property name="justify">center</property>
+                             <property name="label" translatable="yes">0%</property>
+                             <style>
+                               <class name="dim-label"/>
+-- 
+2.33.1
+
