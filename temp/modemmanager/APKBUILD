@@ -1,0 +1,92 @@
+# Forked from Alpine to fix firmware version reporting of Quectel
+
+pkgname=modemmanager
+pkgver=9999_git20211126
+_pkgver=1.18.4
+pkgrel=0
+pkgdesc="ModemManager library"
+url="http://www.freedesktop.org/wiki/Software/ModemManager"
+arch="all !mips !mips64 !s390x !riscv64" # limited by polkit
+license="GPL-2.0-or-later AND LGPL-2.1-or-later"
+depends="dbus polkit"
+depends_dev="libmm-glib"
+makedepends="$depends_dev gobject-introspection-dev gtk-doc vala
+	libgudev-dev polkit-dev libmbim-dev libqmi-dev linux-headers"
+checkdepends="glib-dev"
+options="!check" # https://bugs.freedesktop.org/show_bug.cgi?id=101197
+subpackages="
+	$pkgname-lang
+	$pkgname-doc
+	libmm-glib:libmm
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-openrc
+	$pkgname-bash-completion
+	"
+source="https://www.freedesktop.org/software/ModemManager/ModemManager-$_pkgver.tar.xz
+	$pkgname.rules
+	$pkgname.initd
+	0001-plugins-quectel-mm-broadband-modem-qmi-quectel-ignor.patch
+	0002-plugins-quectel-mm-shared-quectel-use-QGMR-to-set-ve.patch
+	"
+builddir="$srcdir"/ModemManager-$_pkgver
+
+build() {
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--sysconfdir=/etc \
+		--mandir=/usr/share/man \
+		--infodir=/usr/share/info \
+		--localstatedir=/var \
+		--with-polkit=permissive \
+		--enable-plugin-qcom-soc \
+		--disable-gtk-doc \
+		--disable-static \
+		--enable-vala=yes \
+		--with-systemd-suspend-resume=yes
+	make
+}
+
+libmm() {
+	cd "$builddir"
+	mkdir -p "$subpkgdir"
+	make DESTDIR="$subpkgdir" -C libmm-glib install
+	# move dev files to modemmnager-dev
+	mv -f "$subpkgdir/usr/include/libmm-glib" "$pkgdir/usr/include/"
+	mv -f "$subpkgdir/usr/share/gir-1.0" "$pkgdir/usr/share/"
+	rmdir "$subpkgdir/usr/include" "$subpkgdir/usr/share"
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+	make DESTDIR="$pkgdir" -C libmm-glib uninstall
+	rmdir "$pkgdir"/usr/lib/girepository-1.0 # in libmm-glib
+	rm -rf "$pkgdir"/usr/share/dbus-1/system-services #systemd-service
+	mkdir -p "$pkgdir/usr/share/polkit-1/rules.d"
+	install -m644 -D "$srcdir/$pkgname.rules" \
+		"$pkgdir/usr/share/polkit-1/rules.d/01-org.freedesktop.ModemManager.rules"
+	install -m755 -D "$srcdir/$pkgname.initd" \
+		"$pkgdir/etc/init.d/$pkgname"
+	# post-install message
+	mkdir -p "$pkgdir/usr/share/doc/$pkgname"
+	cat > $pkgdir/usr/share/doc/$pkgname/README.alpine <<EOF
+If your USB modem shows up as a Flash drive when you plug it in:
+
+install 'usb-modeswitch' to automatically switch to USB modem mode whenever you plug it in.
+To control your modem without the root password: add your user account to the 'plugdev' group.
+EOF
+}
+
+check() {
+	make check
+}
+
+sha512sums="
+156193f0e9709e401f3acd66f8bc3028e04de70fca760b42fd9626e616292851cdeadd18685e05f0f83066a21d5c43741e96838e4940767a93b03db9bee7c9db  ModemManager-1.18.4.tar.xz
+6fab86c27502b29be0c6610d835a3249a4a81993eb986cff2c3ea9393fadd3f693ba4bb0532ae0e50a83d359559511859dd05f7ea2f0cb52839f535a7e49f8a0  modemmanager.rules
+9f74a2473b9cc7be42a467809639f5720ab251d13f29f8bbd4fd9a13edb80c10c5ee50fbe50819bfe67f231805b92f007c3e7403c46ab998dc843e1f9549659b  modemmanager.initd
+5abb97e5d6716b6a5eeb01dbcfd459b950ee9af8b30155c87d713d33f72f12fd9ea56d01be49a636e4ba234656d225159044a8f059435c6819de1097a9f61537  0001-plugins-quectel-mm-broadband-modem-qmi-quectel-ignor.patch
+3dde1deb5ddeb454b6cf373036367e9eb26239699bf8fee0d08584a3e11ff1fb4d46be265ee47218ef3c0c91a92a82ae50e9cf627c8f78c09efc513d477f9150  0002-plugins-quectel-mm-shared-quectel-use-QGMR-to-set-ve.patch
+"

@@ -1,0 +1,71 @@
+From f840b170fd6d7f3db599c75f97846f6e94349a3e Mon Sep 17 00:00:00 2001
+From: Dylan Van Assche <me@dylanvanassche.be>
+Date: Mon, 27 Dec 2021 17:59:53 +0100
+Subject: [PATCH 2/2] plugins/quectel/mm-shared-quectel: use QGMR to set
+ version
+
+Quectel modems report only their major firmware version through
+AT+GMR, use AT+QGMR instead to report the full firmware version.
+---
+ plugins/quectel/mm-shared-quectel.c | 31 +++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/quectel/mm-shared-quectel.c b/plugins/quectel/mm-shared-quectel.c
+index f8ccbbe3..aa64153a 100644
+--- a/plugins/quectel/mm-shared-quectel.c
++++ b/plugins/quectel/mm-shared-quectel.c
+@@ -143,6 +143,26 @@ mm_shared_quectel_firmware_load_update_settings_finish (MMIfaceModemFirmware  *s
+     return g_task_propagate_pointer (G_TASK (res), error);
+ }
+ 
++static void
++quectel_get_firmware_version_ready (MMBaseModem  *modem,
++                                    GAsyncResult *res,
++                                    GTask        *task)
++{
++    MMFirmwareUpdateSettings *update_settings;
++    const gchar              *version;
++
++    update_settings = g_task_get_task_data (task);
++
++    /* Set full firmware version */
++    version = mm_base_modem_at_command_finish (modem, res, NULL);
++    if (version)
++        mm_firmware_update_settings_set_version (update_settings, version);
++
++    g_task_return_pointer (task, update_settings, g_object_unref);
++    g_object_unref (task);
++    g_object_ref(update_settings);
++}
++
+ static void
+ qfastboot_test_ready (MMBaseModem  *self,
+                       GAsyncResult *res,
+@@ -150,6 +170,7 @@ qfastboot_test_ready (MMBaseModem  *self,
+ {
+     MMFirmwareUpdateSettings *update_settings;
+ 
++    /* Set update method */
+     if (!mm_base_modem_at_command_finish (self, res, NULL))
+         update_settings = mm_firmware_update_settings_new (MM_MODEM_FIRMWARE_UPDATE_METHOD_NONE);
+     else {
+@@ -157,8 +178,14 @@ qfastboot_test_ready (MMBaseModem  *self,
+         mm_firmware_update_settings_set_fastboot_at (update_settings, "AT+QFASTBOOT");
+     }
+ 
+-    g_task_return_pointer (task, update_settings, g_object_unref);
+-    g_object_unref (task);
++    /* Get full firmware version */
++    g_task_set_task_data (task, update_settings, g_object_unref);
++    mm_base_modem_at_command (MM_BASE_MODEM (self),
++                              "+QGMR?",
++                              3,
++                              FALSE,
++                              (GAsyncReadyCallback) quectel_get_firmware_version_ready,
++                              task);
+ }
+ 
+ void
+-- 
+2.33.1
+
