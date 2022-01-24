@@ -198,7 +198,7 @@ mount_boot_partition() {
 	partition=$(find_boot_partition)
 	if [ -z "$partition" ]; then
 		echo "ERROR: boot partition not found!"
-		show_splash /splash-noboot.ppm.gz
+		show_splash "boot partition not found"
 		loop_forever
 	fi
 
@@ -219,7 +219,7 @@ extract_initramfs_extra() {
 	initramfs_extra="$1"
 	if [ ! -e "$initramfs_extra" ]; then
 		echo "ERROR: initramfs-extra not found!"
-		show_splash /splash-noinitramfsextra.ppm.gz
+		show_splash "initramfs-extra not found"
 		loop_forever
 	fi
 	echo "Extract $initramfs_extra"
@@ -228,7 +228,7 @@ extract_initramfs_extra() {
 
 wait_root_partition() {
 	while [ -z "$(find_root_partition)" ]; do
-		show_splash /splash-norootfs.ppm.gz
+		show_splash "root partition not found"
 		echo "Could not find the rootfs."
 		echo "Maybe you need to insert the sdcard, if your device has"
 		echo "any? Trying again in one second..."
@@ -310,7 +310,7 @@ unlock_root_partition() {
 		done
 		ROOT_PARTITION_UNLOCKED=1
 		# Show again the loading splashscreen
-		show_splash_loading
+		show_splash "Loading..."
 	fi
 }
 
@@ -321,7 +321,7 @@ get_partition_type() {
 
 resize_root_filesystem() {
 	if [ "$ROOT_PARTITION_RESIZED" = 1 ]; then
-		show_splash /splash-resizefs.ppm.gz
+		show_splash "growing rootfs to use available space"
 		partition="$(find_root_partition)"
 		touch /etc/mtab # see https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=673323
 		type="$(get_partition_type "$partition")"
@@ -345,7 +345,7 @@ resize_root_filesystem() {
 				;;
 			*)	echo "WARNING: Can not resize '$type' filesystem ($partition)." ;;
 		esac
-		show_splash_loading
+		show_splash "Loading..."
 	fi
 }
 
@@ -371,7 +371,7 @@ mount_root_partition() {
 	esac
 	if ! [ -e /sysroot/usr ]; then
 		echo "ERROR: unable to mount root partition!"
-		show_splash /splash-mounterror.ppm.gz
+		show_splash "unable to mount root partition"
 		loop_forever
 	fi
 }
@@ -533,7 +533,7 @@ start_charging_mode() {
 	# Start it once and then start triggerhappy
 	(
 		charging-sdl -pcf "$fontpath" \
-			|| show_splash /splash-charging-error.ppm.gz
+			|| show_splash "Charging mode failed"
 	) &
 	thd --deviceglob /dev/input/event* --triggers /etc/triggerhappy.conf
 }
@@ -547,19 +547,13 @@ show_splash() {
 		return
 	fi
 
-	echo "IMG_ALIGN=CM" >>/tmp/fbsplash.cfg
-	gzip -c -d "$1" >/tmp/splash.ppm
-	fbsplash -s /tmp/splash.ppm -i /tmp/fbsplash.cfg
-}
+	killall pbsplash 2>/dev/null
 
-show_splash_loading() {
-	# Allow overriding the default loading splash screen with a
-	# "splash.ppm.gz" file on the boot partition
-	if [ -e /boot/splash.ppm.gz ]; then
-		show_splash /boot/splash.ppm.gz
-	else
-		show_splash /splash-loading.ppm.gz
-	fi
+	while pgrep pbsplash >/dev/null; do
+		sleep 0.1
+	done
+
+	/usr/bin/pbsplash -s /usr/share/pbsplash/pmos-logo-text.svg -m "$1 " &
 }
 
 set_framebuffer_mode() {
