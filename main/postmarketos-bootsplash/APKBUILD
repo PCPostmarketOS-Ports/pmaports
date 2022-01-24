@@ -1,0 +1,35 @@
+# Contributor:
+# Maintainer:
+pkgname=postmarketos-bootsplash
+pkgver=0.1
+pkgrel=0
+pkgdesc="postmarketOS boot splash screen dependencies"
+url="https://postmarketos.org"
+arch="all"
+license="GPL-3.0-or-later"
+depends="pbsplash"
+options="!check" # no testsuite
+source="
+	OpenSans-Regular.svg
+	pmos-logo.svg
+	pmos-logo-text.svg
+	pmos-logo-text-epaper.svg
+	postmarketos-bootsplash.files
+"
+
+package() {
+	install -Dm644 "$srcdir"/OpenSans-Regular.svg -t "$pkgdir"/usr/share/pbsplash/
+	install -Dm644 "$srcdir"/pmos-logo.svg -t "$pkgdir"/usr/share/pbsplash/
+	install -Dm644 "$srcdir"/pmos-logo-text.svg -t "$pkgdir"/usr/share/pbsplash/
+	install -Dm644 "$srcdir"/pmos-logo-text-epaper.svg -t "$pkgdir"/usr/share/pbsplash/
+	install -Dm644 "$srcdir"/postmarketos-bootsplash.files \
+		"$pkgdir"/etc/postmarketos-mkinitfs/files/30-postmarketos-bootsplash.files
+}
+
+sha512sums="
+2387c64d84f0ba3ee76925f55c87ce025140aa3cd462107a851c34ffd89bd52f606e0d1f9f371d4f642d96545d5cc1bc0fcfb23ca7629a9149055f068da6bffd  OpenSans-Regular.svg
+98984fd67b99400d2b08422c4d314da558d3c94ee67dbc895e7bbfd6fdf22d4b2c9d35f48f4b73b383a054f535d4089fb705c5532f034cb2ee54eab2184e8e86  pmos-logo.svg
+ba3db3eeee13b86a61d1b16625739894bd6420eb8dcc4ee6efea21c8dcfdccfcedbff3c3e9ebcf08388174ac62b6d689001ed00ba89884e1bed14bd68de15cab  pmos-logo-text.svg
+d673bacfcf16cdaa602e82663ffc17e131040e76e4ebd4078f8340c4ebb5be983ac8a4c9acf25f7c8b725a36adb7e775cbeef1b3cc809f58d876e70994b8f6c2  pmos-logo-text-epaper.svg
+2ed353d41e9bb410c17c2bd2c9bdd8c57cfb6a7802b43796c666922c094c9fb44fad69971144810f2060bd62b16663765750964b63a56a85b0cf046af75c5017  postmarketos-bootsplash.files
+"
