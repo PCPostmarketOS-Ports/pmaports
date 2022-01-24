@@ -7,7 +7,7 @@ TELNET_PORT=23
 setup_usb_network
 start_unudhcpd
 
-show_splash /splash-debug-shell.ppm.gz
+show_splash "WARNING! debug-shell is active"
 
 echo "Create 'pmos_continue_boot' script"
 {

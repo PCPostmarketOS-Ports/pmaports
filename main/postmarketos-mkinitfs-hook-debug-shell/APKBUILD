@@ -1,5 +1,5 @@
 pkgname=postmarketos-mkinitfs-hook-debug-shell
-pkgver=0.3
+pkgver=0.4
 pkgrel=0
 pkgdesc="Root shell in the initramfs (security hole, for debugging only)"
 url="https://postmarketos.org"
@@ -18,6 +18,6 @@ package() {
 }
 
 sha512sums="
-4e464411612933d0639e3ee58e1f05b554ba14983e0596e7220dab16ed9737776646d520b2267e23f1f6822b870e20e8ae9f61b95c4fa8513c579f21da8af9d8  20-debug-shell.sh
+5ac780e42236209de97317a72ca60a07af454fa8baa8113eadd4e3ccb2b2855e2b1204ee29bb89502601be78bfb53266779f4912275f693ca1e3fe5f2d57b134  20-debug-shell.sh
 3274b01850dabe927bc3749f2b4b86eab02adc6954504352401e596e29e044aec512ccead68b471a8009aa8658fe698ffdc67e03c3ca55b7dd54d35c72ac620f  20-debug-shell.files
 "
