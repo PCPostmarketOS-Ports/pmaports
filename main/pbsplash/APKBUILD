@@ -1,0 +1,27 @@
+# Maintainer: Caleb Connolly <caleb@connolly.tech>
+pkgname=pbsplash
+pkgdesc="postmarketOS boot splash screen"
+pkgver=0.1.1
+pkgrel=0
+_commit="6d899d997134f28564e11a2e2ef1ea8d7834dd04"
+url="https://git.sr.ht/~calebccff/pbsplash"
+arch="all"
+options="!check" # no testsuite
+license="GPL-3.0"
+source="$pkgname-$_commit.tar.gz::https://git.sr.ht/~calebccff/pbsplash/archive/$_commit.tar.gz"
+makedepends="meson tfblib linux-headers"
+builddir="$pkgname-$_commit"
+
+build() {
+	abuild-meson . output
+	meson compile ${JOBS:+-j ${JOBS}} -C output
+}
+
+package() {
+	cd $srcdir/$builddir
+	DESTDIR="$pkgdir" meson install --no-rebuild -C output
+}
+
+sha512sums="
+f08bdea5032676fb1cbdf7552a17937b387be2770284a42b715c2f619f1ec3da1eb9b6a722f7904ec28473bf7c71997ae5c33968ff7f9e0674d242686aa53eac  pbsplash-6d899d997134f28564e11a2e2ef1ea8d7834dd04.tar.gz
+"
