@@ -2,7 +2,7 @@
 
 pkgname=linux-pine64-pinephonepro
 pkgver=5.16.7
-pkgrel=0
+pkgrel=1
 pkgdesc="Mainline kernel for the pinephone pro"
 arch="aarch64"
 _flavor="${pkgname#linux-}"
@@ -42,7 +42,7 @@ case $pkgver in
 	*.*.*)	_kernver=${pkgver%.0};;
 	*.*)	_kernver=$pkgver;;
 esac
-_commit="138b2bb2032e6df014efe88e4a4bbdd4ad93b18d"
+_commit="d31aea0338418c040856e93075a41d94b431368a"
 source="
 	https://gitlab.com/pine64-org/linux/-/archive/ppp-$pkgver/linux-ppp-$pkgver.tar.gz
 	config-$_flavor.aarch64
@@ -78,5 +78,5 @@ package() {
 
 sha512sums="
 365697049c59f2d0baf27becd6d00da030ab931b16ef075ca9a227302adf741de55137a349d589edd8bd028f95f6e23417858cfefb9d9748ec5e36fc3b4205de  linux-ppp-5.16.7.tar.gz
-1fc43a1bca4cb2a82617568cee24d49acc172ddc8fcc2d652760c368b242e536629b6e0fda5f38b990ee2e5fb029c1592ea5bdd0f89a83bd3484bc8d533d64cc  config-pine64-pinephonepro.aarch64
+103b62582ee2e5b64f8d66bb304f6ce8249e13586fb2d4243ea92cd2bb2c210c6cbe276bb2ffaa3b2218f136c408bd1ff0d367f8591bf49945c358ff81f17534  config-pine64-pinephonepro.aarch64
 "
