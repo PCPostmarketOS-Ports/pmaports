@@ -1,0 +1,41 @@
+# Reference: <https://postmarketos.org/devicepkg>
+pkgname=device-planet-cosmocom
+pkgdesc="Planet Computers Cosmo Communicator"
+pkgver=0.1
+pkgrel=0
+url="https://postmarketos.org"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+depends="
+	linux-planet-cosmocom
+	mesa-dri-gallium
+	mkbootimg
+	postmarketos-base
+	msm-fb-refresher
+"
+makedepends="devicepkg-dev"
+source="deviceinfo
+	10-cosmocom-loopback-device.sh
+	20-fbdev.conf
+"
+
+build() {
+
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+
+	install -Dm644 "$srcdir"/10-cosmocom-loopback-device.sh \
+		"$pkgdir"/etc/postmarketos-mkinitfs/hooks/10-cosmocom-loopback-device.sh
+
+	install -Dm644 "$srcdir"/20-fbdev.conf \
+		"$pkgdir"/etc/X11/xorg.conf.d/20-fbdev.conf
+}
+sha512sums="
+427f90d98602469a739329fe4c5f442c24a9f8e0638cf66bc44ea0e150db14a065411489b79a1f347fed2bfa6826fdcae5bd410e3286b2852b66d95b4d298291  deviceinfo
+a82ca564c8fc239edd95d70092487bef0dabd1173c4f223c04c9caff13c7b0e8ef7062a1d87b90d23ec19715e51348c877268df7b6b380ca710caaab65f1a98e  10-cosmocom-loopback-device.sh
+07bda3435dffec7f8e8e158266cb619fb41c6b04a49a605e76fa88bc33be3cb27fdc54c8664be0738bab2c7a8054ce3d7563036323bf04762dcf735064ac10a2  20-fbdev.conf
+"

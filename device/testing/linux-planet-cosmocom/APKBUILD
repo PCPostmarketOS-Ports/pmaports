@@ -1,0 +1,55 @@
+# Reference: <https://postmarketos.org/vendorkernel>
+# Kernel config based on: arch/arm64/configs/(CHANGEME!)
+
+pkgname=linux-planet-cosmocom
+pkgver=4.4
+pkgrel=0
+pkgdesc="Planet Computers Cosmo Communicator kernel fork"
+arch="aarch64"
+_carch="arm64"
+_flavor="planet-cosmocom"
+url="https://kernel.org"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps pmb:cross-native"
+makedepends="
+	bash
+	bc
+	bison
+	devicepkg-dev
+	flex
+	openssl-dev
+	perl
+	python2
+"
+
+# Source
+_repository="cosmo-linux-kernel-4.4"
+_commit="610b34527e216bff6c35479071429f3cdd26e393"
+_config="config-$_flavor.$arch"
+source="
+    $pkgname_$_commit.tar.gz::https://github.com/PCLineageOS-Ports/$_repository/archive/$_commit.tar.gz
+    $_config
+"
+builddir="$srcdir/$_repository-$_commit"
+_outdir="out"
+
+prepare() {
+	default_prepare
+	. downstreamkernel_prepare
+}
+
+build() {
+	unset LDFLAGS
+	make O="$_outdir" ARCH="$_carch" CC="${CC:-gcc}" \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS"
+}
+
+package() {
+	downstreamkernel_package "$builddir" "$pkgdir" "$_carch" \
+		"$_flavor" "$_outdir"
+}
+
+sha512sums="
+11f1e5e633eb984d5da10577c3b1b8b3708c1adc9528df7c5e858360f125ccab892070db842e8b5824d7b0c89ce68fb475e759a59f05424484bfd23b233a0174  610b34527e216bff6c35479071429f3cdd26e393.tar.gz
+0d070ed1b02044880d64473a8cc35bfaffa4b11b607985ac38a206eacd2a93de7805f2fe5841762d68597ef1ef440e5734d37b8d55bb2a82a86875cfbc1b24be  config-planet-cosmocom.aarch64
+"
