@@ -3,8 +3,8 @@
 # scripts.
 
 deviceinfo_format_version="0"
-deviceinfo_name="Planet Computers Cosmo Communicator"
-deviceinfo_manufacturer="Planet Computers"
+deviceinfo_name="Cosmo Communicator"
+deviceinfo_manufacturer="Planet"
 deviceinfo_codename="planet-cosmocom"
 deviceinfo_year="2019"
 deviceinfo_dtb=""
