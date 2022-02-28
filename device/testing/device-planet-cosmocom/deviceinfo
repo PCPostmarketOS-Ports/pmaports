@@ -19,7 +19,7 @@ deviceinfo_screen_width="2160"
 deviceinfo_screen_height="1080"
 
 # Bootloader related
-deviceinfo_kernel_cmdline="bootopt=64S3,32N2,64N2 androidboot.selinux=permissive buildvariant=userdebug selinux=1"
+deviceinfo_kernel_cmdline="bootopt=64S3,32N2,64N2"
 deviceinfo_generate_bootimg="true"
 deviceinfo_bootimg_qcdt="false"
 deviceinfo_bootimg_mtk_mkimage="false"
